@@ -1,0 +1,131 @@
+-- ============================================================================
+-- PROFILE CREATION PATTERN DOCUMENTATION
+-- ============================================================================
+-- This file documents the correct pattern for profile creation in GroceryHopper
+--
+-- ⚠️  IMPORTANT: Database triggers are NOT used for profile creation
+-- ⚠️  Profile creation happens in app/auth/actions.ts using service role client
+-- ============================================================================
+
+-- ============================================================================
+-- WHY NOT DATABASE TRIGGERS?
+-- ============================================================================
+--
+-- ❌ Problem: Database triggers for profile creation are unreliable
+--    - Don't always fire in hosted Supabase (especially with email confirmation)
+--    - Create race conditions with RLS policies
+--    - Harder to debug and test
+--    - Lead to "new row violates RLS" errors
+--
+-- ✅ Solution: Client-side profile creation in signup action
+--    - Explicit, predictable, and testable
+--    - Full control over error handling
+--    - Works reliably in all environments
+--    - No race conditions with RLS
+--
+-- ============================================================================
+-- THE CORRECT PATTERN (implemented in app/auth/actions.ts)
+-- ============================================================================
+--
+-- export async function signUp(formData: FormData) {
+--   const supabase = await createClient()
+--
+--   // 1. Create auth user
+--   const { data: authData, error: authError } = await supabase.auth.signUp({
+--     email,
+--     password,
+--   })
+--
+--   if (authError) return { error: authError.message }
+--
+--   // 2. Create profile with service role client (bypasses RLS)
+--   if (authData.user) {
+--     const adminClient = createServiceRoleClient()
+--     const { error: profileError } = await adminClient
+--       .from('profiles')
+--       .insert({
+--         id: authData.user.id,
+--         email: authData.user.email!,
+--       })
+--
+--     if (profileError) {
+--       // Profile creation failed - you may want to handle this
+--       // (e.g., delete the auth user, log error, etc.)
+--       return { error: 'Failed to create profile' }
+--     }
+--   }
+--
+--   return { success: true }
+-- }
+--
+-- ============================================================================
+-- WHY SERVICE ROLE CLIENT?
+-- ============================================================================
+--
+-- During signup (especially with email confirmation):
+-- 1. User doesn't have an active session yet
+-- 2. Regular Supabase client would fail with RLS error
+-- 3. Service role client bypasses RLS temporarily
+-- 4. Once user confirms email and signs in, regular client works
+--
+-- Security:
+-- - Service role client is ONLY used server-side (in Server Actions)
+-- - NEVER exposed to browser
+-- - Only used for this specific operation
+-- - All subsequent operations use regular client with RLS
+--
+-- ============================================================================
+-- ALTERNATIVE APPROACHES CONSIDERED (AND WHY REJECTED)
+-- ============================================================================
+--
+-- 1. ❌ Database trigger on auth.users
+--    - Unreliable in hosted Supabase
+--    - Can't handle errors gracefully
+--    - Race conditions with RLS
+--
+-- 2. ❌ Postgres function with SECURITY DEFINER
+--    - Still has timing issues
+--    - Harder to debug
+--    - Less flexible than application code
+--
+-- 3. ❌ Disable RLS during signup
+--    - Security risk
+--    - Doesn't solve the root problem
+--    - Opens other vulnerabilities
+--
+-- 4. ✅ Client-side with service role (CHOSEN)
+--    - Explicit and predictable
+--    - Full error handling
+--    - Works in all environments
+--    - Follows Next.js best practices
+--
+-- ============================================================================
+-- TESTING THE PATTERN
+-- ============================================================================
+--
+-- To verify profile creation works:
+--
+-- 1. Start dev server: npm run dev
+-- 2. Navigate to /auth/signup
+-- 3. Create a new account
+-- 4. Check Supabase dashboard:
+--    - User exists in auth.users ✓
+--    - Profile exists in public.profiles ✓
+--    - Profile has correct user_id and email ✓
+-- 5. Sign in with the account
+-- 6. Verify you can access protected routes ✓
+--
+-- ============================================================================
+-- REFERENCES
+-- ============================================================================
+--
+-- - DevHub Skill: /mnt/c/DevHub/skills/supabase-nextjs-starter.md
+-- - Template: /mnt/c/DevHub/templates/supabase-nextjs-16/
+-- - Auth Actions: app/auth/actions.ts
+-- - Service Role Client: lib/supabase/service-role.ts
+--
+-- ============================================================================
+
+-- This file contains no SQL statements - it's pure documentation
+-- The actual implementation is in app/auth/actions.ts
+SELECT 'Profile creation pattern documented. See app/auth/actions.ts for implementation.' AS message;
