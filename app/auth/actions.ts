@@ -17,7 +17,7 @@ import { createServiceRoleClient } from '@/lib/supabase/service-role'
  * - Hard to debug when they fail
  * - This approach is explicit and testable
  */
-export async function signUp(formData: FormData) {
+export async function signUp(prevState: { error: string } | null, formData: FormData) {
   const supabase = await createClient()
 
   const email = formData.get('email') as string
@@ -63,7 +63,7 @@ export async function signUp(formData: FormData) {
   redirect('/dashboard')
 }
 
-export async function signIn(formData: FormData) {
+export async function signIn(prevState: { error: string } | null, formData: FormData) {
   const supabase = await createClient()
 
   const data = {
@@ -86,7 +86,7 @@ export async function signOut() {
   redirect('/auth/signin')
 }
 
-export async function requestPasswordReset(formData: FormData) {
+export async function requestPasswordReset(prevState: { error: string } | null, formData: FormData) {
   const supabase = await createClient()
   const email = formData.get('email') as string
 
@@ -101,7 +101,7 @@ export async function requestPasswordReset(formData: FormData) {
   redirect('/auth/forgot-password/sent')
 }
 
-export async function resetPassword(formData: FormData) {
+export async function resetPassword(prevState: { error: string } | null, formData: FormData) {
   const supabase = await createClient()
   const password = formData.get('password') as string
   const confirmPassword = formData.get('confirm_password') as string

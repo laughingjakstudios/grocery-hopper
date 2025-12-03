@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -37,13 +36,17 @@ type ListItem = {
 export function ListCard({
   list,
   categories,
+  onDelete,
+  onToggleActive,
 }: {
   list: GroceryList
   categories: Category[]
+  onDelete?: (id: string) => void
+  onToggleActive?: (id: string, isActive: boolean) => void
 }) {
   const [items, setItems] = useState<ListItem[]>([])
   const [loading, setLoading] = useState(true)
-  const router = useRouter()
+  const [isActive, setIsActive] = useState(list.is_active)
 
   // Fetch items for this list
   async function fetchItems() {
@@ -69,32 +72,44 @@ export function ListCard({
 
   async function handleDelete() {
     if (confirm('Are you sure you want to delete this list?')) {
-      const response = await fetch(`/api/lists?id=${list.id}`, {
+      // Optimistically call parent
+      onDelete?.(list.id)
+
+      // Make API call
+      await fetch(`/api/lists?id=${list.id}`, {
         method: 'DELETE',
       })
-      if (response.ok) {
-        router.refresh()
-      }
     }
   }
 
   async function handleToggleActive() {
+    const newActiveState = !isActive
+
+    // Optimistic update
+    setIsActive(newActiveState)
+    onToggleActive?.(list.id, newActiveState)
+
+    // Make API call
     const supabase = createClient()
     await supabase
       .from('grocery_lists')
-      .update({ is_active: !list.is_active })
+      .update({ is_active: newActiveState })
       .eq('id', list.id)
-    router.refresh()
+  }
+
+  // Handle items change from ListItemsSection
+  function handleItemsChange(newItems: ListItem[]) {
+    setItems(newItems)
   }
 
   return (
-    <Card className={!list.is_active ? 'opacity-60' : ''}>
+    <Card className={!isActive ? 'opacity-60' : ''}>
       <CardHeader>
         <div className="flex items-start justify-between">
           <div className="flex-1">
             <CardTitle className="flex items-center gap-2">
               {list.name}
-              {!list.is_active && <Badge variant="secondary">Archived</Badge>}
+              {!isActive && <Badge variant="secondary">Archived</Badge>}
             </CardTitle>
             {list.description && (
               <CardDescription>{list.description}</CardDescription>
@@ -105,9 +120,9 @@ export function ListCard({
               variant="ghost"
               size="sm"
               onClick={handleToggleActive}
-              title={list.is_active ? 'Archive list' : 'Restore list'}
+              title={isActive ? 'Archive list' : 'Restore list'}
             >
-              {list.is_active ? (
+              {isActive ? (
                 <Archive className="h-4 w-4" />
               ) : (
                 <ArchiveRestore className="h-4 w-4" />
@@ -142,7 +157,7 @@ export function ListCard({
             listId={list.id}
             items={items}
             categories={categories}
-            onItemsChange={fetchItems}
+            onItemsChange={handleItemsChange}
           />
         )}
       </CardContent>

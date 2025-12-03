@@ -1,0 +1,28 @@
+
+<svg width="192" height="192" xmlns="http://www.w3.org/2000/svg">
+  <!-- Blue background -->
+  <rect width="192" height="192" fill="#2563eb"/>
+
+  <!-- Shopping cart icon -->
+  <g transform="translate(96, 96)">
+    <!-- Cart body -->
+    <rect x="-28.799999999999997" y="-28.799999999999997" width="57.599999999999994" height="48"
+          fill="none" stroke="white" stroke-width="3.84" rx="3.84"/>
+
+    <!-- Cart handle -->
+    <path d="M -38.400000000000006 -28.799999999999997 L -48 -48 L 19.200000000000003 -48"
+          fill="none" stroke="white" stroke-width="3.84"/>
+
+    <!-- Wheels -->
+    <circle cx="-15.36" cy="28.799999999999997" r="5.76" fill="white"/>
+    <circle cx="15.36" cy="28.799999999999997" r="5.76" fill="white"/>
+
+    <!-- GH text -->
+    <text x="0" y="48"
+          font-family="Arial, sans-serif"
+          font-size="28.799999999999997"
+          font-weight="bold"
+          fill="white"
+          text-anchor="middle">GH</text>
+  </g>
+</svg>
