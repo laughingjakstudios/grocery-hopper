@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -35,10 +36,15 @@ export function ShareListDialog({ listId, listName, shareCode: initialShareCode,
   const [loading, setLoading] = useState(true)
   const [generating, setGenerating] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [mounted, setMounted] = useState(false)
 
   const shareUrl = shareCode
     ? `${typeof window !== 'undefined' ? window.location.origin : ''}/join/${shareCode}`
     : null
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   useEffect(() => {
     loadMembers()
@@ -99,10 +105,13 @@ export function ShareListDialog({ listId, listName, shareCode: initialShareCode,
   const editors = members.filter(m => m.role === 'editor')
   const owner = members.find(m => m.role === 'owner')
 
-  return (
+  // Don't render on server or before mount
+  if (!mounted) return null
+
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={onClose}>
       <div
-        className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl"
+        className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl mx-4"
         onClick={e => e.stopPropagation()}
       >
         <div className="mb-4 flex items-center justify-between">
@@ -253,6 +262,7 @@ export function ShareListDialog({ listId, listName, shareCode: initialShareCode,
           </Button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }
