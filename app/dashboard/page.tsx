@@ -14,20 +14,53 @@ export default async function DashboardPage() {
     redirect('/auth/signin')
   }
 
-  // Get grocery lists
-  const { data: lists } = await supabase
-    .from('grocery_lists')
-    .select('*')
+  // Get all lists the user has access to (owned + shared)
+  const { data: shares } = await supabase
+    .from('list_shares')
+    .select(`
+      role,
+      grocery_lists!inner (
+        id,
+        name,
+        description,
+        is_active,
+        share_code,
+        user_id,
+        created_at,
+        updated_at
+      )
+    `)
     .eq('user_id', user.id)
-    .order('is_active', { ascending: false })
-    .order('created_at', { ascending: false })
 
-  // Get categories for dropdown
-  const { data: categories } = await supabase
-    .from('categories')
-    .select('*')
-    .eq('user_id', user.id)
-    .order('name')
+  // Transform and sort lists
+  type GroceryListData = {
+    id: string
+    name: string
+    description: string | null
+    is_active: boolean
+    share_code: string | null
+    user_id: string
+    created_at: string
+    updated_at: string
+  }
+
+  const lists = shares?.map(share => {
+    // Supabase returns the joined data - extract it properly
+    const listData = share.grocery_lists as unknown as GroceryListData
+    return {
+      ...listData,
+      myRole: share.role as 'owner' | 'editor',
+      isOwner: share.role === 'owner',
+      isShared: share.role !== 'owner',
+    }
+  }).sort((a, b) => {
+    // Active lists first, then by created_at
+    if (a.is_active !== b.is_active) return a.is_active ? -1 : 1
+    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+  }) || []
+
+  // Categories are now per-list, so we don't fetch them globally anymore
+  // They'll be fetched per list in the components
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -42,8 +75,7 @@ export default async function DashboardPage() {
       {/* Main Content */}
       <main className="container mx-auto p-4">
         <DashboardContent
-          initialLists={lists || []}
-          initialCategories={categories || []}
+          initialLists={lists}
           userId={user.id}
         />
       </main>

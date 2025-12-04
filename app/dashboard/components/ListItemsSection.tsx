@@ -34,11 +34,14 @@ export function ListItemsSection({
   listId,
   items: initialItems,
   categories,
+  onItemsChange,
+  onCategoriesChange,
 }: {
   listId: string
   items: ListItem[]
   categories: Category[]
   onItemsChange?: (items: ListItem[]) => void
+  onCategoriesChange?: (categories: Category[]) => void
 }) {
   const [items, setItems] = useState(initialItems)
   const [newItemName, setNewItemName] = useState('')

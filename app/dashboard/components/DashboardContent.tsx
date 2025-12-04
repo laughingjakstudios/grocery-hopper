@@ -10,31 +10,34 @@ type GroceryList = {
   name: string
   description: string | null
   is_active: boolean
+  share_code: string | null
   created_at: string
   user_id: string
-}
-
-type Category = {
-  id: string
-  name: string
-  color: string
-  icon: string | null
+  myRole: 'owner' | 'editor'
+  isOwner: boolean
+  isShared: boolean
 }
 
 interface DashboardContentProps {
   initialLists: GroceryList[]
-  initialCategories: Category[]
   userId: string
 }
 
-export function DashboardContent({ initialLists, initialCategories, userId }: DashboardContentProps) {
+export function DashboardContent({ initialLists, userId }: DashboardContentProps) {
   const [lists, setLists] = useState(initialLists)
-  const [categories] = useState(initialCategories)
 
   // Listen for new list additions from HamburgerMenu
   useEffect(() => {
     const handleNewList = (event: CustomEvent<GroceryList>) => {
-      setLists((prev) => [event.detail, ...prev])
+      // New lists created by the user are always owned
+      const newList = {
+        ...event.detail,
+        myRole: 'owner' as const,
+        isOwner: true,
+        isShared: false,
+        share_code: null,
+      }
+      setLists((prev) => [newList, ...prev])
     }
 
     window.addEventListener('new-list-created' as any, handleNewList)
@@ -52,8 +55,8 @@ export function DashboardContent({ initialLists, initialCategories, userId }: Da
     return () => window.removeEventListener('voice-command-success', handleVoiceSuccess)
   }, [])
 
-  // Handle list deletion
-  function handleDeleteList(listId: string) {
+  // Handle list deletion or leaving
+  function handleRemoveList(listId: string) {
     setLists((prev) => prev.filter((list) => list.id !== listId))
   }
 
@@ -86,8 +89,7 @@ export function DashboardContent({ initialLists, initialCategories, userId }: Da
             <ListCard
               key={list.id}
               list={list}
-              categories={categories || []}
-              onDelete={handleDeleteList}
+              onRemove={handleRemoveList}
               onToggleActive={handleToggleActive}
             />
           ))}
