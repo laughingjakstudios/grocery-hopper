@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
+import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -11,7 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Plus, Trash2 } from 'lucide-react'
+import { Plus, Trash2, AlertCircle } from 'lucide-react'
 
 type Category = {
   id: string
@@ -30,6 +31,11 @@ type ListItem = {
   list_id: string
 }
 
+type SyncError = {
+  message: string
+  timestamp: number
+}
+
 export function ListItemsSection({
   listId,
   items: initialItems,
@@ -43,11 +49,24 @@ export function ListItemsSection({
   onItemsChange?: (items: ListItem[]) => void
   onCategoriesChange?: (categories: Category[]) => void
 }) {
+  const router = useRouter()
   const [items, setItems] = useState(initialItems)
   const [newItemName, setNewItemName] = useState('')
   const [newItemQuantity, setNewItemQuantity] = useState('')
   const [newItemCategory, setNewItemCategory] = useState('')
   const [isAdding, setIsAdding] = useState(false)
+  const [syncError, setSyncError] = useState<SyncError | null>(null)
+
+  const handleAuthError = useCallback(() => {
+    // Session expired - redirect to login
+    router.push('/login')
+  }, [router])
+
+  const handleSyncError = useCallback((message: string) => {
+    setSyncError({ message, timestamp: Date.now() })
+    // Auto-clear error after 5 seconds
+    setTimeout(() => setSyncError(null), 5000)
+  }, [])
 
   async function handleAddItem(e: React.FormEvent) {
     e.preventDefault()
@@ -77,24 +96,42 @@ export function ListItemsSection({
     setNewItemCategory('')
     setIsAdding(true)
 
-    // Save to DB
-    const response = await fetch('/api/items', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        name: itemName,
-        quantity: itemQty || null,
-        category_id: itemCat === 'none' ? null : itemCat || null,
-        list_id: listId,
-      }),
-    })
+    try {
+      const response = await fetch('/api/items', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: itemName,
+          quantity: itemQty || null,
+          category_id: itemCat === 'none' ? null : itemCat || null,
+          list_id: listId,
+        }),
+      })
 
-    if (response.ok) {
+      if (response.status === 401) {
+        // Remove temp item and redirect to login
+        setItems(prev => prev.filter(item => item.id !== tempId))
+        handleAuthError()
+        return
+      }
+
+      if (!response.ok) {
+        // Remove temp item on failure
+        setItems(prev => prev.filter(item => item.id !== tempId))
+        handleSyncError(`Failed to add "${itemName}"`)
+        return
+      }
+
       const newItem = await response.json()
       // Replace temp item with real item (with real ID)
       setItems(prev => prev.map(item => item.id === tempId ? newItem : item))
+    } catch (error) {
+      // Network error - remove temp item
+      setItems(prev => prev.filter(item => item.id !== tempId))
+      handleSyncError(`Failed to add "${itemName}" - check your connection`)
+    } finally {
+      setIsAdding(false)
     }
-    setIsAdding(false)
   }
 
   async function handleToggleItem(itemId: string, currentState: boolean) {
@@ -105,35 +142,113 @@ export function ListItemsSection({
       )
     )
 
-    // Sync to DB in background
-    fetch('/api/items', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        id: itemId,
-        is_checked: !currentState,
-      }),
-    })
+    try {
+      const response = await fetch('/api/items', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: itemId,
+          is_checked: !currentState,
+        }),
+      })
+
+      if (response.status === 401) {
+        // Revert and redirect to login
+        setItems(prev =>
+          prev.map(item =>
+            item.id === itemId ? { ...item, is_checked: currentState } : item
+          )
+        )
+        handleAuthError()
+        return
+      }
+
+      if (!response.ok) {
+        // Revert on failure
+        setItems(prev =>
+          prev.map(item =>
+            item.id === itemId ? { ...item, is_checked: currentState } : item
+          )
+        )
+        handleSyncError('Failed to update item')
+      }
+    } catch {
+      // Network error - revert
+      setItems(prev =>
+        prev.map(item =>
+          item.id === itemId ? { ...item, is_checked: currentState } : item
+        )
+      )
+      handleSyncError('Failed to update item - check your connection')
+    }
   }
 
   async function handleDeleteItem(itemId: string) {
+    // Store item for potential rollback
+    const deletedItem = items.find(item => item.id === itemId)
+
     // Update UI immediately
     setItems(prev => prev.filter(item => item.id !== itemId))
 
-    // Sync to DB in background
-    fetch(`/api/items?id=${itemId}`, {
-      method: 'DELETE',
-    })
+    try {
+      const response = await fetch(`/api/items?id=${itemId}`, {
+        method: 'DELETE',
+      })
+
+      if (response.status === 401) {
+        // Restore item and redirect to login
+        if (deletedItem) {
+          setItems(prev => [...prev, deletedItem])
+        }
+        handleAuthError()
+        return
+      }
+
+      if (!response.ok) {
+        // Restore item on failure
+        if (deletedItem) {
+          setItems(prev => [...prev, deletedItem])
+        }
+        handleSyncError('Failed to delete item')
+      }
+    } catch {
+      // Network error - restore item
+      if (deletedItem) {
+        setItems(prev => [...prev, deletedItem])
+      }
+      handleSyncError('Failed to delete item - check your connection')
+    }
   }
 
   async function handleClearChecked() {
+    // Store checked items for potential rollback
+    const checkedItemsBackup = items.filter(item => item.is_checked)
+
     // Update UI immediately
     setItems(prev => prev.filter(item => !item.is_checked))
 
-    // Sync to DB in background
-    fetch(`/api/items/clear?listId=${listId}`, {
-      method: 'DELETE',
-    })
+    try {
+      const response = await fetch(`/api/items/clear?listId=${listId}`, {
+        method: 'DELETE',
+      })
+
+      if (response.status === 401) {
+        // Restore checked items and redirect to login
+        setItems(prev => [...prev, ...checkedItemsBackup])
+        handleAuthError()
+        return
+      }
+
+      if (!response.ok) {
+        // Restore checked items on failure
+        setItems(prev => [...prev, ...checkedItemsBackup])
+        handleSyncError('Failed to clear checked items')
+      }
+    } catch {
+      // Network error - restore checked items
+      setItems(prev => [...prev, ...checkedItemsBackup])
+      handleSyncError('Failed to clear checked items - check your connection')
+    }
   }
 
   const uncheckedItems = items.filter((item) => !item.is_checked)
@@ -141,6 +256,20 @@ export function ListItemsSection({
 
   return (
     <div className="space-y-4">
+      {/* Sync Error Banner */}
+      {syncError && (
+        <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-md text-red-700 text-sm">
+          <AlertCircle className="h-4 w-4 flex-shrink-0" />
+          <span>{syncError.message}</span>
+          <button
+            onClick={() => setSyncError(null)}
+            className="ml-auto text-red-500 hover:text-red-700"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
+
       {/* Add Item Form */}
       <form onSubmit={handleAddItem} className="space-y-2 relative z-10">
         <div className="flex gap-2">

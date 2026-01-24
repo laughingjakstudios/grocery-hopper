@@ -1,11 +1,12 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card } from '@/components/ui/card'
-import { Trash2, Plus } from 'lucide-react'
+import { Trash2, Plus, AlertCircle } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 
 type Category = {
@@ -28,11 +29,14 @@ const PRESET_COLORS = [
 const PRESET_ICONS = ['🥬', '🥛', '🍖', '🍞', '🧀', '🍎', '🥫', '🧊', '🧴', '🍫']
 
 export function CategoriesManager() {
+  const router = useRouter()
   const [categories, setCategories] = useState<Category[]>([])
   const [loading, setLoading] = useState(true)
   const [newName, setNewName] = useState('')
   const [selectedColor, setSelectedColor] = useState(PRESET_COLORS[0])
   const [selectedIcon, setSelectedIcon] = useState('')
+  const [error, setError] = useState<string | null>(null)
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   useEffect(() => {
     fetchCategories()
@@ -41,44 +45,76 @@ export function CategoriesManager() {
   async function fetchCategories() {
     const supabase = createClient()
 
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('categories')
       .select('*')
       .order('name')
 
+    if (error) {
+      setError('Failed to load categories')
+    }
     setCategories(data || [])
     setLoading(false)
   }
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault()
-    if (!newName.trim()) return
+    if (!newName.trim() || isSubmitting) return
 
-    const response = await fetch('/api/categories', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        name: newName,
-        color: selectedColor,
-        icon: selectedIcon || null,
-      }),
-    })
+    setError(null)
+    setIsSubmitting(true)
 
-    if (response.ok) {
+    try {
+      const response = await fetch('/api/categories', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: newName,
+          color: selectedColor,
+          icon: selectedIcon || null,
+        }),
+      })
+
+      if (response.status === 401) {
+        router.push('/login')
+        return
+      }
+
+      if (!response.ok) {
+        setError('Failed to create category')
+        return
+      }
+
       setNewName('')
       setSelectedIcon('')
       fetchCategories()
+    } catch {
+      setError('Failed to create category. Check your connection.')
+    } finally {
+      setIsSubmitting(false)
     }
   }
 
   async function handleDelete(categoryId: string) {
     if (confirm('Delete this category? Items will not be deleted.')) {
-      const response = await fetch(`/api/categories?id=${categoryId}`, {
-        method: 'DELETE',
-      })
+      try {
+        const response = await fetch(`/api/categories?id=${categoryId}`, {
+          method: 'DELETE',
+        })
 
-      if (response.ok) {
+        if (response.status === 401) {
+          router.push('/login')
+          return
+        }
+
+        if (!response.ok) {
+          setError('Failed to delete category')
+          return
+        }
+
         fetchCategories()
+      } catch {
+        setError('Failed to delete category. Check your connection.')
       }
     }
   }
@@ -89,6 +125,20 @@ export function CategoriesManager() {
 
   return (
     <div className="space-y-4">
+      {/* Error Banner */}
+      {error && (
+        <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-md text-red-700 text-sm">
+          <AlertCircle className="h-4 w-4 flex-shrink-0" />
+          <span>{error}</span>
+          <button
+            onClick={() => setError(null)}
+            className="ml-auto text-red-500 hover:text-red-700"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
+
       {/* Create New Category */}
       <Card className="p-4">
         <form onSubmit={handleCreate} className="space-y-4">
@@ -142,9 +192,9 @@ export function CategoriesManager() {
             </div>
           </div>
 
-          <Button type="submit" className="w-full">
+          <Button type="submit" className="w-full" disabled={isSubmitting}>
             <Plus className="mr-2 h-4 w-4" />
-            Add Category
+            {isSubmitting ? 'Adding...' : 'Add Category'}
           </Button>
         </form>
       </Card>
