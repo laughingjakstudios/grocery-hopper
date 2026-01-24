@@ -63,11 +63,11 @@ export default async function DashboardPage() {
   // They'll be fetched per list in the components
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-background">
       {/* Minimal Header */}
-      <header className="sticky top-0 z-30 border-b bg-white">
+      <header className="sticky top-0 z-30 border-b bg-card">
         <div className="container mx-auto flex items-center justify-between px-4 py-3">
-          <h1 className="text-xl font-bold text-gray-900">GroceryHopper</h1>
+          <h1 className="text-xl font-bold text-primary">GroceryHopper</h1>
           <HamburgerMenu />
         </div>
       </header>

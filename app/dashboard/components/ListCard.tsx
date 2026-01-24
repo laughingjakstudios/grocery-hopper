@@ -202,7 +202,7 @@ export function ListCard({
         </CardHeader>
         <CardContent>
           {loading ? (
-            <p className="text-sm text-gray-500">Loading items...</p>
+            <p className="text-sm text-muted-foreground">Loading items...</p>
           ) : (
             <ListItemsSection
               listId={list.id}

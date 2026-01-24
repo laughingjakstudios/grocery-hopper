@@ -13,6 +13,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const { name, description } = body
 
+    // Create the list
     const { data, error } = await supabase
       .from('grocery_lists')
       .insert({
@@ -25,6 +26,21 @@ export async function POST(request: NextRequest) {
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 400 })
+    }
+
+    // Create list_shares entry for the owner
+    const { error: shareError } = await supabase
+      .from('list_shares')
+      .insert({
+        list_id: data.id,
+        user_id: user.id,
+        role: 'owner',
+      })
+
+    if (shareError) {
+      // If share creation fails, delete the list to keep things consistent
+      await supabase.from('grocery_lists').delete().eq('id', data.id)
+      return NextResponse.json({ error: 'Failed to initialize list access' }, { status: 400 })
     }
 
     return NextResponse.json(data)

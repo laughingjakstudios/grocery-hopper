@@ -28,10 +28,12 @@ export const metadata: Metadata = {
     statusBarStyle: "default",
     title: "GroceryHopper",
   },
+  icons: {
+    apple: "/apple-touch-icon.png",
+  },
   formatDetection: {
     telephone: false,
   },
-  themeColor: "#2563eb",
 };
 
 export const viewport = {
@@ -39,6 +41,7 @@ export const viewport = {
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
+  themeColor: "#3B8DBD",
 };
 
 export default function RootLayout({
