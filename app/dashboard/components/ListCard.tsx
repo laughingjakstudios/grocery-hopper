@@ -83,6 +83,47 @@ export function ListCard({
     fetchData()
   }, [list.id])
 
+  // Refetch on window focus/visibility for shared list sync
+  useEffect(() => {
+    const handleFocus = () => fetchData()
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') fetchData()
+    }
+
+    window.addEventListener('focus', handleFocus)
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+
+    return () => {
+      window.removeEventListener('focus', handleFocus)
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+    }
+  }, [list.id])
+
+  // Real-time subscription for items in this list
+  useEffect(() => {
+    const supabase = createClient()
+
+    const channel = supabase
+      .channel(`list-items-${list.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'list_items',
+          filter: `list_id=eq.${list.id}`,
+        },
+        () => {
+          fetchData()
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [list.id])
+
   const uncheckedCount = items.filter((item) => !item.is_checked).length
   const checkedCount = items.filter((item) => item.is_checked).length
 

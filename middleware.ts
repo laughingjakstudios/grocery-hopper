@@ -51,6 +51,11 @@ export async function middleware(request: NextRequest) {
   }
 
   // IMPORTANT: Return the supabaseResponse to ensure session cookies are refreshed
+  // Add cache control headers to prevent stale data
+  supabaseResponse.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate')
+  supabaseResponse.headers.set('Pragma', 'no-cache')
+  supabaseResponse.headers.set('Expires', '0')
+
   return supabaseResponse
 }
 
