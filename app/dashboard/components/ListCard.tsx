@@ -153,8 +153,8 @@ export function ListCard({
       .eq('id', list.id)
   }
 
-  function handleItemsChange(newItems: ListItem[]) {
-    setItems(newItems)
+  function handleItemsChange(updater: ListItem[] | ((prev: ListItem[]) => ListItem[])) {
+    setItems(updater)
   }
 
   function handleCategoriesChange(newCategories: Category[]) {

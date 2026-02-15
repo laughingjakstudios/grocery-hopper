@@ -36,9 +36,11 @@ type SyncError = {
   timestamp: number
 }
 
+type ItemsUpdater = ListItem[] | ((prev: ListItem[]) => ListItem[])
+
 export function ListItemsSection({
   listId,
-  items: initialItems,
+  items,
   categories,
   onItemsChange,
   onCategoriesChange,
@@ -46,11 +48,10 @@ export function ListItemsSection({
   listId: string
   items: ListItem[]
   categories: Category[]
-  onItemsChange?: (items: ListItem[]) => void
+  onItemsChange: (updater: ItemsUpdater) => void
   onCategoriesChange?: (categories: Category[]) => void
 }) {
   const router = useRouter()
-  const [items, setItems] = useState(initialItems)
   const [newItemName, setNewItemName] = useState('')
   const [newItemQuantity, setNewItemQuantity] = useState('')
   const [newItemCategory, setNewItemCategory] = useState('')
@@ -58,13 +59,11 @@ export function ListItemsSection({
   const [syncError, setSyncError] = useState<SyncError | null>(null)
 
   const handleAuthError = useCallback(() => {
-    // Session expired - redirect to login
     router.push('/login')
   }, [router])
 
   const handleSyncError = useCallback((message: string) => {
     setSyncError({ message, timestamp: Date.now() })
-    // Auto-clear error after 5 seconds
     setTimeout(() => setSyncError(null), 5000)
   }, [])
 
@@ -72,7 +71,6 @@ export function ListItemsSection({
     e.preventDefault()
     if (!newItemName.trim() || isAdding) return
 
-    // Create temp item for immediate display
     const tempId = `temp-${Date.now()}`
     const tempItem: ListItem = {
       id: tempId,
@@ -85,9 +83,8 @@ export function ListItemsSection({
     }
 
     // Add to UI immediately
-    setItems(prev => [tempItem, ...prev])
+    onItemsChange(prev => [tempItem, ...prev])
 
-    // Clear form
     const itemName = newItemName.trim()
     const itemQty = newItemQuantity
     const itemCat = newItemCategory
@@ -109,25 +106,21 @@ export function ListItemsSection({
       })
 
       if (response.status === 401) {
-        // Remove temp item and redirect to login
-        setItems(prev => prev.filter(item => item.id !== tempId))
+        onItemsChange(prev => prev.filter(item => item.id !== tempId))
         handleAuthError()
         return
       }
 
       if (!response.ok) {
-        // Remove temp item on failure
-        setItems(prev => prev.filter(item => item.id !== tempId))
+        onItemsChange(prev => prev.filter(item => item.id !== tempId))
         handleSyncError(`Failed to add "${itemName}"`)
         return
       }
 
       const newItem = await response.json()
-      // Replace temp item with real item (with real ID)
-      setItems(prev => prev.map(item => item.id === tempId ? newItem : item))
+      onItemsChange(prev => prev.map(item => item.id === tempId ? newItem : item))
     } catch (error) {
-      // Network error - remove temp item
-      setItems(prev => prev.filter(item => item.id !== tempId))
+      onItemsChange(prev => prev.filter(item => item.id !== tempId))
       handleSyncError(`Failed to add "${itemName}" - check your connection`)
     } finally {
       setIsAdding(false)
@@ -136,7 +129,7 @@ export function ListItemsSection({
 
   async function handleToggleItem(itemId: string, currentState: boolean) {
     // Update UI immediately
-    setItems(prev =>
+    onItemsChange(prev =>
       prev.map(item =>
         item.id === itemId ? { ...item, is_checked: !currentState } : item
       )
@@ -153,8 +146,7 @@ export function ListItemsSection({
       })
 
       if (response.status === 401) {
-        // Revert and redirect to login
-        setItems(prev =>
+        onItemsChange(prev =>
           prev.map(item =>
             item.id === itemId ? { ...item, is_checked: currentState } : item
           )
@@ -164,8 +156,7 @@ export function ListItemsSection({
       }
 
       if (!response.ok) {
-        // Revert on failure
-        setItems(prev =>
+        onItemsChange(prev =>
           prev.map(item =>
             item.id === itemId ? { ...item, is_checked: currentState } : item
           )
@@ -173,8 +164,7 @@ export function ListItemsSection({
         handleSyncError('Failed to update item')
       }
     } catch {
-      // Network error - revert
-      setItems(prev =>
+      onItemsChange(prev =>
         prev.map(item =>
           item.id === itemId ? { ...item, is_checked: currentState } : item
         )
@@ -184,11 +174,9 @@ export function ListItemsSection({
   }
 
   async function handleDeleteItem(itemId: string) {
-    // Store item for potential rollback
     const deletedItem = items.find(item => item.id === itemId)
 
-    // Update UI immediately
-    setItems(prev => prev.filter(item => item.id !== itemId))
+    onItemsChange(prev => prev.filter(item => item.id !== itemId))
 
     try {
       const response = await fetch(`/api/items?id=${itemId}`, {
@@ -196,36 +184,31 @@ export function ListItemsSection({
       })
 
       if (response.status === 401) {
-        // Restore item and redirect to login
         if (deletedItem) {
-          setItems(prev => [...prev, deletedItem])
+          onItemsChange(prev => [...prev, deletedItem])
         }
         handleAuthError()
         return
       }
 
       if (!response.ok) {
-        // Restore item on failure
         if (deletedItem) {
-          setItems(prev => [...prev, deletedItem])
+          onItemsChange(prev => [...prev, deletedItem])
         }
         handleSyncError('Failed to delete item')
       }
     } catch {
-      // Network error - restore item
       if (deletedItem) {
-        setItems(prev => [...prev, deletedItem])
+        onItemsChange(prev => [...prev, deletedItem])
       }
       handleSyncError('Failed to delete item - check your connection')
     }
   }
 
   async function handleClearChecked() {
-    // Store checked items for potential rollback
     const checkedItemsBackup = items.filter(item => item.is_checked)
 
-    // Update UI immediately
-    setItems(prev => prev.filter(item => !item.is_checked))
+    onItemsChange(prev => prev.filter(item => !item.is_checked))
 
     try {
       const response = await fetch(`/api/items/clear?listId=${listId}`, {
@@ -233,20 +216,17 @@ export function ListItemsSection({
       })
 
       if (response.status === 401) {
-        // Restore checked items and redirect to login
-        setItems(prev => [...prev, ...checkedItemsBackup])
+        onItemsChange(prev => [...prev, ...checkedItemsBackup])
         handleAuthError()
         return
       }
 
       if (!response.ok) {
-        // Restore checked items on failure
-        setItems(prev => [...prev, ...checkedItemsBackup])
+        onItemsChange(prev => [...prev, ...checkedItemsBackup])
         handleSyncError('Failed to clear checked items')
       }
     } catch {
-      // Network error - restore checked items
-      setItems(prev => [...prev, ...checkedItemsBackup])
+      onItemsChange(prev => [...prev, ...checkedItemsBackup])
       handleSyncError('Failed to clear checked items - check your connection')
     }
   }
