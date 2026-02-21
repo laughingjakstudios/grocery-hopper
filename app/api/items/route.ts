@@ -58,7 +58,6 @@ export async function DELETE(request: NextRequest) {
       .from('list_items')
       .delete()
       .eq('id', id)
-      .eq('user_id', user.id)
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 400 })
@@ -91,7 +90,6 @@ export async function PATCH(request: NextRequest) {
       .from('list_items')
       .update({ is_checked })
       .eq('id', id)
-      .eq('user_id', user.id)
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 400 })
