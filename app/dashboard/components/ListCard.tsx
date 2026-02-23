@@ -108,7 +108,35 @@ export function ListCard({
       .on(
         'postgres_changes',
         {
-          event: '*',
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'list_items',
+          filter: `list_id=eq.${list.id}`,
+        },
+        (payload) => {
+          // Apply update directly from payload to avoid stale-read race
+          const updated = payload.new as ListItem
+          setItems(prev => prev.map(item =>
+            item.id === updated.id ? updated : item
+          ))
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'list_items',
+          filter: `list_id=eq.${list.id}`,
+        },
+        () => {
+          fetchData()
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'DELETE',
           schema: 'public',
           table: 'list_items',
           filter: `list_id=eq.${list.id}`,
