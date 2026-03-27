@@ -129,8 +129,12 @@ export function ListCard({
           table: 'list_items',
           filter: `list_id=eq.${list.id}`,
         },
-        () => {
-          fetchData()
+        (payload) => {
+          const newItem = payload.new as ListItem
+          setItems(prev => {
+            if (prev.some(item => item.id === newItem.id)) return prev
+            return [newItem, ...prev]
+          })
         }
       )
       .on(
@@ -141,8 +145,9 @@ export function ListCard({
           table: 'list_items',
           filter: `list_id=eq.${list.id}`,
         },
-        () => {
-          fetchData()
+        (payload) => {
+          const deletedId = (payload.old as { id: string }).id
+          setItems(prev => prev.filter(item => item.id !== deletedId))
         }
       )
       .subscribe()
