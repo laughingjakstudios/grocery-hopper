@@ -139,9 +139,26 @@ export function DashboardContent({ initialLists, userId }: DashboardContentProps
           table: 'list_shares',
           filter: `user_id=eq.${userId}`,
         },
-        () => {
-          // Refetch lists when shares change
-          fetchLists()
+        (payload) => {
+          if (payload.eventType === 'DELETE') {
+            // Share removed — remove list from state
+            const oldShare = payload.old as { list_id?: string }
+            if (oldShare.list_id) {
+              setLists(prev => prev.filter(l => l.id !== oldShare.list_id))
+            }
+          } else {
+            // INSERT (someone shared a list with us) or UPDATE — refetch
+            // but only if it's a list we don't already have
+            const newShare = payload.new as { list_id?: string }
+            if (newShare.list_id) {
+              setLists(prev => {
+                if (prev.some(l => l.id === newShare.list_id)) return prev
+                // Unknown list — need to fetch
+                fetchLists()
+                return prev
+              })
+            }
+          }
         }
       )
       .on(
@@ -167,35 +184,10 @@ export function DashboardContent({ initialLists, userId }: DashboardContentProps
     }
   }, [userId, fetchLists])
 
-  // Listen for new list additions from HamburgerMenu
-  useEffect(() => {
-    const handleNewList = (event: CustomEvent<GroceryList>) => {
-      // New lists created by the user are always owned
-      const newList = {
-        ...event.detail,
-        myRole: 'owner' as const,
-        isOwner: true,
-        isShared: false,
-        share_code: null,
-      }
-      setLists((prev) => [newList, ...prev])
-      setSelectedListId(event.detail.id)
-    }
-
-    window.addEventListener('new-list-created' as any, handleNewList)
-    return () => window.removeEventListener('new-list-created' as any, handleNewList)
-  }, [])
-
-  // Listen for voice command completions (for items added via voice)
-  useEffect(() => {
-    const handleVoiceSuccess = () => {
-      // Voice commands might add items, but items are managed per-card
-      // No need to refresh lists here
-    }
-
-    window.addEventListener('voice-command-success', handleVoiceSuccess)
-    return () => window.removeEventListener('voice-command-success', handleVoiceSuccess)
-  }, [])
+  function handleListCreated(newList: GroceryList) {
+    setLists((prev) => [newList, ...prev])
+    setSelectedListId(newList.id)
+  }
 
   // Handle list deletion or leaving — update selection synchronously
   function handleRemoveList(listId: string) {
@@ -227,6 +219,7 @@ export function DashboardContent({ initialLists, userId }: DashboardContentProps
             lists={lists}
             selectedListId={selectedListId}
             onSelectList={setSelectedListId}
+            onListCreated={handleListCreated}
           />
         </div>
         {isRefreshing && (

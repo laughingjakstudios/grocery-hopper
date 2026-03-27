@@ -33,10 +33,12 @@ export function HamburgerMenu({
   lists,
   selectedListId,
   onSelectList,
+  onListCreated,
 }: {
   lists: GroceryList[]
   selectedListId: string | null
   onSelectList: (id: string) => void
+  onListCreated: (list: GroceryList) => void
 }) {
   const [menuOpen, setMenuOpen] = useState(false)
   const [newListOpen, setNewListOpen] = useState(false)
@@ -58,8 +60,13 @@ export function HamburgerMenu({
 
     if (response.ok) {
       const newList = await response.json()
-      // Dispatch event for DashboardContent to pick up
-      window.dispatchEvent(new CustomEvent('new-list-created', { detail: newList }))
+      onListCreated({
+        ...newList,
+        myRole: 'owner' as const,
+        isOwner: true,
+        isShared: false,
+        share_code: null,
+      })
       setNewListOpen(false)
       setMenuOpen(false)
     }
