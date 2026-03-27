@@ -222,6 +222,7 @@ export function DashboardContent({ initialLists, userId }: DashboardContentProps
             <ListCard
               key={list.id}
               list={list}
+              userId={userId}
               onRemove={handleRemoveList}
               onToggleActive={handleToggleActive}
             />

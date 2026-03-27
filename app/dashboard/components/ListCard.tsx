@@ -42,10 +42,12 @@ type ListItem = {
 
 export function ListCard({
   list,
+  userId,
   onRemove,
   onToggleActive,
 }: {
   list: GroceryList
+  userId: string
   onRemove?: (id: string) => void
   onToggleActive?: (id: string, isActive: boolean) => void
 }) {
@@ -130,7 +132,9 @@ export function ListCard({
           filter: `list_id=eq.${list.id}`,
         },
         (payload) => {
-          const newItem = payload.new as ListItem
+          const newItem = payload.new as ListItem & { user_id?: string }
+          // Skip our own inserts — the API response already handles temp→real swap
+          if (newItem.user_id === userId) return
           setItems(prev => {
             if (prev.some(item => item.id === newItem.id)) return prev
             return [newItem, ...prev]
