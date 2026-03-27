@@ -41,13 +41,6 @@ export function DashboardContent({ initialLists, userId }: DashboardContentProps
     if (selectedListId) localStorage.setItem(SELECTED_LIST_KEY, selectedListId)
   }, [selectedListId])
 
-  // If selected list was removed, fall back to first
-  useEffect(() => {
-    if (lists.length > 0 && !lists.some(l => l.id === selectedListId)) {
-      setSelectedListId(lists[0].id)
-    }
-  }, [lists, selectedListId])
-
   const selectedList = lists.find(l => l.id === selectedListId)
 
   // Fetch lists from client-side
@@ -204,9 +197,15 @@ export function DashboardContent({ initialLists, userId }: DashboardContentProps
     return () => window.removeEventListener('voice-command-success', handleVoiceSuccess)
   }, [])
 
-  // Handle list deletion or leaving
+  // Handle list deletion or leaving — update selection synchronously
   function handleRemoveList(listId: string) {
-    setLists((prev) => prev.filter((list) => list.id !== listId))
+    setLists((prev) => {
+      const next = prev.filter((list) => list.id !== listId)
+      if (listId === selectedListId) {
+        setSelectedListId(next[0]?.id ?? null)
+      }
+      return next
+    })
   }
 
   // Handle list archive/restore
