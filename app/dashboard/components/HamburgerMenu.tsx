@@ -13,10 +13,31 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { Menu, Plus, Tag, LogOut, X } from 'lucide-react'
+import { Menu, Plus, Tag, LogOut, X, List, Check, Users } from 'lucide-react'
 import { CategoriesManager } from './CategoriesManager'
 
-export function HamburgerMenu() {
+type GroceryList = {
+  id: string
+  name: string
+  description: string | null
+  is_active: boolean
+  share_code: string | null
+  created_at: string
+  user_id: string
+  myRole: 'owner' | 'editor'
+  isOwner: boolean
+  isShared: boolean
+}
+
+export function HamburgerMenu({
+  lists,
+  selectedListId,
+  onSelectList,
+}: {
+  lists: GroceryList[]
+  selectedListId: string | null
+  onSelectList: (id: string) => void
+}) {
   const [menuOpen, setMenuOpen] = useState(false)
   const [newListOpen, setNewListOpen] = useState(false)
   const [categoriesOpen, setCategoriesOpen] = useState(false)
@@ -74,6 +95,36 @@ export function HamburgerMenu() {
           {/* Menu Panel */}
           <div className="absolute right-4 top-14 z-50 w-56 rounded-lg border bg-white shadow-lg">
             <div className="p-2">
+              {/* Lists */}
+              {lists.length > 0 && (
+                <>
+                  <p className="px-3 py-1 text-xs font-medium text-gray-400 uppercase tracking-wider">Lists</p>
+                  {lists.map((list) => (
+                    <button
+                      key={list.id}
+                      onClick={() => {
+                        onSelectList(list.id)
+                        setMenuOpen(false)
+                      }}
+                      className={`flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm ${
+                        list.id === selectedListId
+                          ? 'bg-primary/10 text-primary font-medium'
+                          : 'hover:bg-gray-100'
+                      } ${!list.is_active ? 'opacity-50' : ''}`}
+                    >
+                      {list.id === selectedListId ? (
+                        <Check className="h-4 w-4" />
+                      ) : (
+                        <List className="h-4 w-4" />
+                      )}
+                      <span className="truncate">{list.name}</span>
+                      {list.isShared && <Users className="h-3 w-3 ml-auto text-gray-400" />}
+                    </button>
+                  ))}
+                  <hr className="my-2" />
+                </>
+              )}
+
               <button
                 onClick={() => {
                   setNewListOpen(true)

@@ -3,8 +3,10 @@
 import { useEffect, useState, useCallback } from 'react'
 import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { ListCard } from './ListCard'
-import { ListCarousel } from './ListCarousel'
+import { HamburgerMenu } from './HamburgerMenu'
 import { createClient } from '@/lib/supabase/client'
+
+const SELECTED_LIST_KEY = 'grocery-hopper-selected-list'
 
 type GroceryList = {
   id: string
@@ -26,7 +28,27 @@ interface DashboardContentProps {
 
 export function DashboardContent({ initialLists, userId }: DashboardContentProps) {
   const [lists, setLists] = useState(initialLists)
+  const [selectedListId, setSelectedListId] = useState<string | null>(() => {
+    if (typeof window === 'undefined') return initialLists[0]?.id ?? null
+    const saved = localStorage.getItem(SELECTED_LIST_KEY)
+    if (saved && initialLists.some(l => l.id === saved)) return saved
+    return initialLists[0]?.id ?? null
+  })
   const [isRefreshing, setIsRefreshing] = useState(false)
+
+  // Persist selected list
+  useEffect(() => {
+    if (selectedListId) localStorage.setItem(SELECTED_LIST_KEY, selectedListId)
+  }, [selectedListId])
+
+  // If selected list was removed, fall back to first
+  useEffect(() => {
+    if (lists.length > 0 && !lists.some(l => l.id === selectedListId)) {
+      setSelectedListId(lists[0].id)
+    }
+  }, [lists, selectedListId])
+
+  const selectedList = lists.find(l => l.id === selectedListId)
 
   // Fetch lists from client-side
   const fetchLists = useCallback(async () => {
@@ -164,6 +186,7 @@ export function DashboardContent({ initialLists, userId }: DashboardContentProps
         share_code: null,
       }
       setLists((prev) => [newList, ...prev])
+      setSelectedListId(event.detail.id)
     }
 
     window.addEventListener('new-list-created' as any, handleNewList)
@@ -195,40 +218,46 @@ export function DashboardContent({ initialLists, userId }: DashboardContentProps
     )
   }
 
-  const listCount = lists?.length || 0
-
   return (
-    <div className="relative">
-      {/* Subtle refresh indicator */}
-      {isRefreshing && (
-        <div className="absolute top-0 left-0 right-0 h-0.5 bg-primary/20 overflow-hidden">
-          <div className="h-full w-1/3 bg-primary animate-pulse" />
+    <>
+      {/* Header */}
+      <header className="sticky top-0 z-30 border-b bg-card">
+        <div className="container mx-auto flex items-center justify-between px-4 py-3">
+          <h1 className="text-xl font-bold text-primary">GroceryHopper</h1>
+          <HamburgerMenu
+            lists={lists}
+            selectedListId={selectedListId}
+            onSelectList={setSelectedListId}
+          />
         </div>
-      )}
+        {isRefreshing && (
+          <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary/20 overflow-hidden">
+            <div className="h-full w-1/3 bg-primary animate-pulse" />
+          </div>
+        )}
+      </header>
 
-      {/* Lists Carousel */}
-      {!lists || lists.length === 0 ? (
-        <Card>
-          <CardHeader>
-            <CardTitle>No lists yet</CardTitle>
-            <CardDescription>
-              Create your first grocery list to get started!
-            </CardDescription>
-          </CardHeader>
-        </Card>
-      ) : (
-        <ListCarousel totalCount={listCount}>
-          {lists.map((list) => (
-            <ListCard
-              key={list.id}
-              list={list}
-              userId={userId}
-              onRemove={handleRemoveList}
-              onToggleActive={handleToggleActive}
-            />
-          ))}
-        </ListCarousel>
-      )}
-    </div>
+      {/* Main Content */}
+      <main className="container mx-auto p-4">
+        {!lists || lists.length === 0 ? (
+          <Card>
+            <CardHeader>
+              <CardTitle>No lists yet</CardTitle>
+              <CardDescription>
+                Create your first grocery list to get started!
+              </CardDescription>
+            </CardHeader>
+          </Card>
+        ) : selectedList ? (
+          <ListCard
+            key={selectedList.id}
+            list={selectedList}
+            userId={userId}
+            onRemove={handleRemoveList}
+            onToggleActive={handleToggleActive}
+          />
+        ) : null}
+      </main>
+    </>
   )
 }

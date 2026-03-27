@@ -1,6 +1,5 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import { HamburgerMenu } from './components/HamburgerMenu'
 import { VoiceInput } from './components/VoiceInput'
 import { DashboardContent } from './components/DashboardContent'
 
@@ -64,21 +63,10 @@ export default async function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Minimal Header */}
-      <header className="sticky top-0 z-30 border-b bg-card">
-        <div className="container mx-auto flex items-center justify-between px-4 py-3">
-          <h1 className="text-xl font-bold text-primary">GroceryHopper</h1>
-          <HamburgerMenu />
-        </div>
-      </header>
-
-      {/* Main Content */}
-      <main className="container mx-auto p-4">
-        <DashboardContent
-          initialLists={lists}
-          userId={user.id}
-        />
-      </main>
+      <DashboardContent
+        initialLists={lists}
+        userId={user.id}
+      />
 
       {/* Floating Voice Input Button */}
       <VoiceInput />
