@@ -22,7 +22,6 @@ export async function DELETE(request: NextRequest) {
       .from('list_items')
       .delete()
       .eq('list_id', listId)
-      .eq('user_id', user.id)
       .eq('is_checked', true)
 
     if (error) {
