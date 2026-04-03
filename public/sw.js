@@ -1,7 +1,7 @@
 // GroceryHopper Service Worker
 // Provides offline functionality and PWA features
 
-const CACHE_NAME = 'groceryhopper-v1'
+const CACHE_NAME = 'groceryhopper-v2'
 const STATIC_ASSETS = [
   '/',
   '/dashboard',
@@ -63,37 +63,45 @@ self.addEventListener('fetch', (event) => {
     return
   }
 
-  event.respondWith(
-    caches.match(request).then((cachedResponse) => {
-      // Return cached version if available
-      if (cachedResponse) {
-        // Fetch fresh version in background
-        fetch(request).then((freshResponse) => {
-          if (freshResponse && freshResponse.status === 200) {
+  // Navigation requests (HTML pages) — network-first so deploys are seen immediately
+  if (request.mode === 'navigate') {
+    event.respondWith(
+      fetch(request)
+        .then((response) => {
+          if (response && response.status === 200) {
+            const responseClone = response.clone()
             caches.open(CACHE_NAME).then((cache) => {
-              cache.put(request, freshResponse)
+              cache.put(request, responseClone)
             })
           }
-        }).catch(() => {
-          // Offline - do nothing
+          return response
         })
+        .catch(() => {
+          return caches.match(request).then((cachedResponse) => {
+            return cachedResponse || new Response('Offline', {
+              status: 503,
+              statusText: 'Service Unavailable',
+            })
+          })
+        })
+    )
+    return
+  }
 
-        return cachedResponse
-      }
-
-      // No cache - fetch from network
-      return fetch(request).then((response) => {
-        // Cache successful responses
+  // Static assets — stale-while-revalidate (fast loads, background update)
+  event.respondWith(
+    caches.match(request).then((cachedResponse) => {
+      const fetchPromise = fetch(request).then((response) => {
         if (response && response.status === 200) {
           const responseClone = response.clone()
           caches.open(CACHE_NAME).then((cache) => {
             cache.put(request, responseClone)
           })
         }
-
         return response
-      }).catch(() => {
-        // Offline and no cache - show offline page if we have one
+      })
+
+      return cachedResponse || fetchPromise.catch(() => {
         return new Response('Offline', {
           status: 503,
           statusText: 'Service Unavailable',
