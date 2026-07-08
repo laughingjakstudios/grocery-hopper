@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -28,7 +28,7 @@ const PRESET_COLORS = [
 
 const PRESET_ICONS = ['🥬', '🥛', '🍖', '🍞', '🧀', '🍎', '🥫', '🧊', '🧴', '🍫']
 
-export function CategoriesManager() {
+export function CategoriesManager({ listId }: { listId: string }) {
   const router = useRouter()
   const [categories, setCategories] = useState<Category[]>([])
   const [loading, setLoading] = useState(true)
@@ -38,16 +38,13 @@ export function CategoriesManager() {
   const [error, setError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
-  useEffect(() => {
-    fetchCategories()
-  }, [])
-
-  async function fetchCategories() {
+  const fetchCategories = useCallback(async () => {
     const supabase = createClient()
 
     const { data, error } = await supabase
       .from('categories')
       .select('*')
+      .eq('list_id', listId)
       .order('name')
 
     if (error) {
@@ -55,7 +52,11 @@ export function CategoriesManager() {
     }
     setCategories(data || [])
     setLoading(false)
-  }
+  }, [listId])
+
+  useEffect(() => {
+    fetchCategories()
+  }, [fetchCategories])
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault()
@@ -72,11 +73,12 @@ export function CategoriesManager() {
           name: newName,
           color: selectedColor,
           icon: selectedIcon || null,
+          list_id: listId,
         }),
       })
 
       if (response.status === 401) {
-        router.push('/login')
+        router.push('/auth/signin')
         return
       }
 
@@ -103,7 +105,7 @@ export function CategoriesManager() {
         })
 
         if (response.status === 401) {
-          router.push('/login')
+          router.push('/auth/signin')
           return
         }
 

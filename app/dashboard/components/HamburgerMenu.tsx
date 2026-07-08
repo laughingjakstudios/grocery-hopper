@@ -15,19 +15,7 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Menu, Plus, Tag, LogOut, X, List, Check, Users } from 'lucide-react'
 import { CategoriesManager } from './CategoriesManager'
-
-type GroceryList = {
-  id: string
-  name: string
-  description: string | null
-  is_active: boolean
-  share_code: string | null
-  created_at: string
-  user_id: string
-  myRole: 'owner' | 'editor'
-  isOwner: boolean
-  isShared: boolean
-}
+import type { GroceryList } from '@/lib/list-state'
 
 export function HamburgerMenu({
   lists,
@@ -143,16 +131,18 @@ export function HamburgerMenu({
                 New List
               </button>
 
-              <button
-                onClick={() => {
-                  setCategoriesOpen(true)
-                  setMenuOpen(false)
-                }}
-                className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm hover:bg-gray-100"
-              >
-                <Tag className="h-4 w-4" />
-                Categories
-              </button>
+              {selectedListId && (
+                <button
+                  onClick={() => {
+                    setCategoriesOpen(true)
+                    setMenuOpen(false)
+                  }}
+                  className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm hover:bg-gray-100"
+                >
+                  <Tag className="h-4 w-4" />
+                  Categories
+                </button>
+              )}
 
               <hr className="my-2" />
 
@@ -203,17 +193,19 @@ export function HamburgerMenu({
       </Dialog>
 
       {/* Categories Dialog */}
-      <Dialog open={categoriesOpen} onOpenChange={setCategoriesOpen}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Manage Categories</DialogTitle>
-            <DialogDescription>
-              Create and manage categories for organizing your grocery items
-            </DialogDescription>
-          </DialogHeader>
-          <CategoriesManager />
-        </DialogContent>
-      </Dialog>
+      {selectedListId && (
+        <Dialog open={categoriesOpen} onOpenChange={setCategoriesOpen}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Manage Categories</DialogTitle>
+              <DialogDescription>
+                Create and manage categories for the selected list
+              </DialogDescription>
+            </DialogHeader>
+            <CategoriesManager listId={selectedListId} />
+          </DialogContent>
+        </Dialog>
+      )}
     </>
   )
 }

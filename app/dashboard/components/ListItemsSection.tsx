@@ -13,23 +13,13 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Plus, Trash2, AlertCircle } from 'lucide-react'
-
-type Category = {
-  id: string
-  name: string
-  color: string
-  icon: string | null
-}
-
-type ListItem = {
-  id: string
-  name: string
-  quantity: string | null
-  notes: string | null
-  is_checked: boolean
-  category_id: string | null
-  list_id: string
-}
+import {
+  isTempId,
+  makeTempId,
+  resolveTempItem,
+  type Category,
+  type ListItem,
+} from '@/lib/list-state'
 
 type SyncError = {
   message: string
@@ -43,13 +33,11 @@ export function ListItemsSection({
   items,
   categories,
   onItemsChange,
-  onCategoriesChange,
 }: {
   listId: string
   items: ListItem[]
   categories: Category[]
   onItemsChange: (updater: ItemsUpdater) => void
-  onCategoriesChange?: (categories: Category[]) => void
 }) {
   const router = useRouter()
   const [newItemName, setNewItemName] = useState('')
@@ -59,7 +47,7 @@ export function ListItemsSection({
   const [syncError, setSyncError] = useState<SyncError | null>(null)
 
   const handleAuthError = useCallback(() => {
-    router.push('/login')
+    router.push('/auth/signin')
   }, [router])
 
   const handleSyncError = useCallback((message: string) => {
@@ -71,7 +59,7 @@ export function ListItemsSection({
     e.preventDefault()
     if (!newItemName.trim() || isAdding) return
 
-    const tempId = `temp-${Date.now()}`
+    const tempId = makeTempId(Date.now())
     const tempItem: ListItem = {
       id: tempId,
       name: newItemName.trim(),
@@ -118,14 +106,8 @@ export function ListItemsSection({
       }
 
       const newItem = await response.json()
-      onItemsChange(prev => {
-        // A refetch may have already delivered the real item — just drop the temp
-        if (prev.some(item => item.id === newItem.id)) {
-          return prev.filter(item => item.id !== tempId)
-        }
-        return prev.map(item => item.id === tempId ? newItem : item)
-      })
-    } catch (error) {
+      onItemsChange(prev => resolveTempItem(prev, tempId, newItem))
+    } catch {
       onItemsChange(prev => prev.filter(item => item.id !== tempId))
       handleSyncError(`Failed to add "${itemName}" - check your connection`)
     } finally {
@@ -374,7 +356,7 @@ function ItemRow({
   onDelete: (id: string) => void
 }) {
   const category = categories.find((c) => c.id === item.category_id)
-  const isTemp = item.id.startsWith('temp-')
+  const isTemp = isTempId(item.id)
 
   return (
     <div

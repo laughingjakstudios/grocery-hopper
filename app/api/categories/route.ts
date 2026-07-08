@@ -12,14 +12,20 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { name, color, icon } = body
+    const { name, color, icon, list_id } = body
 
+    if (!list_id) {
+      return NextResponse.json({ error: 'List ID required' }, { status: 400 })
+    }
+
+    // RLS enforces that the user is a member of the list
     const { data, error } = await supabase
       .from('categories')
       .insert({
         name,
         color: color || '#6B7280',
         icon: icon || null,
+        list_id,
         user_id: user.id,
       })
       .select()
@@ -30,7 +36,7 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json({ data })
-  } catch (error) {
+  } catch {
     return NextResponse.json({ error: 'Internal error' }, { status: 500 })
   }
 }
@@ -52,18 +58,27 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Category ID required' }, { status: 400 })
     }
 
-    const { error } = await supabase
+    // RLS restricts category deletion to list owners; filtering by user_id
+    // here would silently skip categories created by other list members
+    const { data, error } = await supabase
       .from('categories')
       .delete()
       .eq('id', id)
-      .eq('user_id', user.id)
+      .select('id')
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 400 })
     }
 
+    if (!data || data.length === 0) {
+      return NextResponse.json(
+        { error: 'Category not found or you are not the list owner' },
+        { status: 403 }
+      )
+    }
+
     return NextResponse.json({ success: true })
-  } catch (error) {
+  } catch {
     return NextResponse.json({ error: 'Internal error' }, { status: 500 })
   }
 }
