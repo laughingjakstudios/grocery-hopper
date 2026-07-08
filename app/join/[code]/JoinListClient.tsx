@@ -8,13 +8,12 @@ import { Users, ShoppingCart } from 'lucide-react'
 import { joinListByCode } from '@/app/dashboard/actions'
 
 interface JoinListClientProps {
-  listId: string
   listName: string
   listDescription: string | null
   shareCode: string
 }
 
-export function JoinListClient({ listId, listName, listDescription, shareCode }: JoinListClientProps) {
+export function JoinListClient({ listName, listDescription, shareCode }: JoinListClientProps) {
   const router = useRouter()
   const [joining, setJoining] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -44,7 +43,7 @@ export function JoinListClient({ listId, listName, listDescription, shareCode }:
           </div>
           <CardTitle className="text-2xl">Join Shared List</CardTitle>
           <CardDescription>
-            You've been invited to collaborate on a grocery list
+            You&apos;ve been invited to collaborate on a grocery list
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">

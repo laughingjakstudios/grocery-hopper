@@ -50,7 +50,7 @@ export default async function HomePage() {
           <div className="rounded-lg border bg-white p-6">
             <h3 className="mb-2 font-semibold">Check Off Items</h3>
             <p className="text-sm text-gray-600">
-              Mark items as you shop and clear them when you're done
+              Mark items as you shop and clear them when you&apos;re done
             </p>
           </div>
         </div>

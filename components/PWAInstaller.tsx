@@ -19,21 +19,11 @@ export function PWAInstaller() {
         })
     }
 
-    // Handle install prompt (for "Add to Home Screen")
-    let deferredPrompt: any
-
-    window.addEventListener('beforeinstallprompt', (e) => {
-      e.preventDefault()
-      deferredPrompt = e
-      console.log('[PWA] Install prompt available')
-
-      // You could show a custom install button here
-      // For now, we'll let the browser handle it
-    })
-
+    // Let the browser show its own install prompt ("Add to Home Screen").
+    // Intercepting beforeinstallprompt with preventDefault() would suppress
+    // it unless we build a custom install button.
     window.addEventListener('appinstalled', () => {
       console.log('[PWA] App installed!')
-      deferredPrompt = null
     })
   }, [])
 

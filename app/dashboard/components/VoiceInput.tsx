@@ -258,7 +258,7 @@ export function VoiceInput({ listId }: VoiceInputProps) {
       {/* Transcript Display */}
       {transcript && (
         <div className="bg-white px-4 py-2 rounded-lg shadow-lg text-sm text-gray-700 max-w-xs text-center">
-          "{transcript}"
+          &ldquo;{transcript}&rdquo;
         </div>
       )}
 
@@ -295,7 +295,7 @@ export function VoiceInput({ listId }: VoiceInputProps) {
       {/* Hint Text */}
       {state === 'idle' && (
         <p className="text-xs text-gray-500 text-center max-w-xs">
-          Tap to speak commands like "add milk" or "check off eggs"
+          Tap to speak commands like &ldquo;add milk&rdquo; or &ldquo;check off eggs&rdquo;
         </p>
       )}
     </div>

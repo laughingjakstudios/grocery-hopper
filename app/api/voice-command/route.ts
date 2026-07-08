@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { revalidatePath } from 'next/cache'
+import type { SupabaseClient } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/server'
 import { parseVoiceCommand, formatCommandSummary } from '@/lib/voice-parser'
 
@@ -147,7 +148,7 @@ export async function POST(request: NextRequest) {
  * Add items to the list
  */
 async function addItems(
-  supabase: any,
+  supabase: SupabaseClient,
   listId: string,
   items: { name: string; quantity?: number; unit?: string }[]
 ) {
@@ -201,7 +202,7 @@ async function addItems(
  * Toggle items checked/unchecked
  */
 async function toggleItems(
-  supabase: any,
+  supabase: SupabaseClient,
   listId: string,
   items: { name: string }[],
   checked: boolean
@@ -217,7 +218,7 @@ async function toggleItems(
       .ilike('name', item.name)
 
     if (matchingItems && matchingItems.length > 0) {
-      const ids = matchingItems.map((i: any) => i.id)
+      const ids = matchingItems.map((i: { id: string }) => i.id)
 
       const { error } = await supabase
         .from('list_items')
@@ -242,7 +243,7 @@ async function toggleItems(
  * Remove items from the list
  */
 async function removeItems(
-  supabase: any,
+  supabase: SupabaseClient,
   listId: string,
   items: { name: string }[]
 ) {
@@ -257,7 +258,7 @@ async function removeItems(
       .ilike('name', item.name)
 
     if (matchingItems && matchingItems.length > 0) {
-      const ids = matchingItems.map((i: any) => i.id)
+      const ids = matchingItems.map((i: { id: string }) => i.id)
 
       const { error } = await supabase
         .from('list_items')

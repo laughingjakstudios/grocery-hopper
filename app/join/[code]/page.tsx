@@ -57,7 +57,6 @@ export default async function JoinPage({ params }: JoinPageProps) {
 
   return (
     <JoinListClient
-      listId={list.id}
       listName={list.name}
       listDescription={list.description}
       shareCode={code}

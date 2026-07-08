@@ -36,38 +36,37 @@ export function ShareListDialog({ listId, listName, shareCode: initialShareCode,
   const [loading, setLoading] = useState(true)
   const [generating, setGenerating] = useState(false)
   const [copied, setCopied] = useState(false)
-  const [mounted, setMounted] = useState(false)
 
-  const shareUrl = shareCode
-    ? `${typeof window !== 'undefined' ? window.location.origin : ''}/join/${shareCode}`
-    : null
-
-  useEffect(() => {
-    setMounted(true)
-  }, [])
+  // This dialog only mounts after user interaction, so it never renders on
+  // the server and window is always available
+  const shareUrl = shareCode ? `${window.location.origin}/join/${shareCode}` : null
 
   useEffect(() => {
-    loadMembers()
-  }, [listId])
+    let cancelled = false
 
-  async function loadMembers() {
-    const result = await getListMembers(listId)
-    if (result.success && result.members) {
-      // Transform the data - profiles comes as object from the join
-      const transformedMembers = (result.members as unknown[]).map((m: unknown) => {
-        const member = m as {
-          id: string
-          role: string
-          joined_at: string
-          user_id: string
-          profiles: { id: string; email: string; full_name: string | null; avatar_url: string | null }
-        }
-        return member
-      })
-      setMembers(transformedMembers)
+    getListMembers(listId).then((result) => {
+      if (cancelled) return
+      if (result.success && result.members) {
+        // Transform the data - profiles comes as object from the join
+        const transformedMembers = (result.members as unknown[]).map((m: unknown) => {
+          const member = m as {
+            id: string
+            role: string
+            joined_at: string
+            user_id: string
+            profiles: { id: string; email: string; full_name: string | null; avatar_url: string | null }
+          }
+          return member
+        })
+        setMembers(transformedMembers)
+      }
+      setLoading(false)
+    })
+
+    return () => {
+      cancelled = true
     }
-    setLoading(false)
-  }
+  }, [listId])
 
   async function handleGenerateLink() {
     setGenerating(true)
@@ -105,9 +104,6 @@ export function ShareListDialog({ listId, listName, shareCode: initialShareCode,
   const editors = members.filter(m => m.role === 'editor')
   const owner = members.find(m => m.role === 'owner')
 
-  // Don't render on server or before mount
-  if (!mounted) return null
-
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={onClose}>
       <div
@@ -115,7 +111,7 @@ export function ShareListDialog({ listId, listName, shareCode: initialShareCode,
         onClick={e => e.stopPropagation()}
       >
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg font-semibold">Share "{listName}"</h2>
+          <h2 className="text-lg font-semibold">Share &ldquo;{listName}&rdquo;</h2>
           <Button variant="ghost" size="sm" onClick={onClose}>
             <X className="h-4 w-4" />
           </Button>
