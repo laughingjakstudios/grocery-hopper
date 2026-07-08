@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -56,9 +56,13 @@ export function ListCard({
   const [loading, setLoading] = useState(true)
   const [isActive, setIsActive] = useState(list.is_active)
   const [showShareDialog, setShowShareDialog] = useState(false)
+  const fetchSeq = useRef(0)
 
-  // Fetch items and categories for this list
+  // Fetch items and categories for this list. Guarded so an older in-flight
+  // response can never overwrite a newer one, and so optimistic temp items
+  // (not yet committed to the DB) survive the wholesale replace.
   async function fetchData() {
+    const seq = ++fetchSeq.current
     const supabase = createClient()
 
     // Fetch items
@@ -76,7 +80,13 @@ export function ListCard({
       .eq('list_id', list.id)
       .order('name')
 
-    setItems(itemsData || [])
+    if (seq !== fetchSeq.current) return
+
+    setItems(prev => {
+      const fresh = itemsData || []
+      const pendingTemp = prev.filter(item => item.id.startsWith('temp-'))
+      return pendingTemp.length ? [...pendingTemp, ...fresh] : fresh
+    })
     setCategories(categoriesData || [])
     setLoading(false)
   }
@@ -85,20 +95,15 @@ export function ListCard({
     fetchData()
   }, [list.id])
 
-  // Refetch on window focus/visibility for shared list sync
+  // Refetch when the tab becomes visible again, for shared list sync
+  // (realtime events can be missed while the tab is backgrounded)
   useEffect(() => {
-    const handleFocus = () => fetchData()
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') fetchData()
     }
 
-    window.addEventListener('focus', handleFocus)
     document.addEventListener('visibilitychange', handleVisibilityChange)
-
-    return () => {
-      window.removeEventListener('focus', handleFocus)
-      document.removeEventListener('visibilitychange', handleVisibilityChange)
-    }
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange)
   }, [list.id])
 
   // Real-time subscription for items in this list

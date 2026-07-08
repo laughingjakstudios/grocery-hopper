@@ -1,7 +1,7 @@
 // GroceryHopper Service Worker
 // Provides offline functionality and PWA features
 
-const CACHE_NAME = 'groceryhopper-v2'
+const CACHE_NAME = 'groceryhopper-v3'
 const STATIC_ASSETS = [
   '/',
   '/dashboard',
@@ -60,6 +60,12 @@ self.addEventListener('fetch', (event) => {
 
   // Skip API calls (let them fail naturally to show user feedback)
   if (request.url.includes('/api/')) {
+    return
+  }
+
+  // Skip cross-origin requests (Supabase data reads must never be cached —
+  // stale-while-revalidate here caused items to vanish/reappear on refresh)
+  if (new URL(request.url).origin !== self.location.origin) {
     return
   }
 

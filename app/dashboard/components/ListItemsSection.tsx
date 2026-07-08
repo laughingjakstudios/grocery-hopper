@@ -118,7 +118,13 @@ export function ListItemsSection({
       }
 
       const newItem = await response.json()
-      onItemsChange(prev => prev.map(item => item.id === tempId ? newItem : item))
+      onItemsChange(prev => {
+        // A refetch may have already delivered the real item — just drop the temp
+        if (prev.some(item => item.id === newItem.id)) {
+          return prev.filter(item => item.id !== tempId)
+        }
+        return prev.map(item => item.id === tempId ? newItem : item)
+      })
     } catch (error) {
       onItemsChange(prev => prev.filter(item => item.id !== tempId))
       handleSyncError(`Failed to add "${itemName}" - check your connection`)

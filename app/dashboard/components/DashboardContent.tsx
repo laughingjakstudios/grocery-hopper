@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { ListCard } from './ListCard'
 import { HamburgerMenu } from './HamburgerMenu'
@@ -35,6 +35,7 @@ export function DashboardContent({ initialLists, userId }: DashboardContentProps
     return initialLists[0]?.id ?? null
   })
   const [isRefreshing, setIsRefreshing] = useState(false)
+  const fetchSeq = useRef(0)
 
   // Persist selected list
   useEffect(() => {
@@ -43,8 +44,10 @@ export function DashboardContent({ initialLists, userId }: DashboardContentProps
 
   const selectedList = lists.find(l => l.id === selectedListId)
 
-  // Fetch lists from client-side
+  // Fetch lists from client-side. Sequence-guarded so an older in-flight
+  // response can never overwrite a newer one.
   const fetchLists = useCallback(async () => {
+    const seq = ++fetchSeq.current
     setIsRefreshing(true)
     try {
       const supabase = createClient()
@@ -95,6 +98,8 @@ export function DashboardContent({ initialLists, userId }: DashboardContentProps
         return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
       }) || []
 
+      if (seq !== fetchSeq.current) return
+
       setLists(freshLists)
     } catch (error) {
       console.error('Failed to fetch lists:', error)
@@ -103,17 +108,8 @@ export function DashboardContent({ initialLists, userId }: DashboardContentProps
     }
   }, [userId])
 
-  // Refetch on window focus (user comes back to browser)
-  useEffect(() => {
-    const handleFocus = () => {
-      fetchLists()
-    }
-
-    window.addEventListener('focus', handleFocus)
-    return () => window.removeEventListener('focus', handleFocus)
-  }, [fetchLists])
-
-  // Refetch on visibility change (user switches back to tab)
+  // Refetch when the tab becomes visible again (realtime events can be
+  // missed while the tab is backgrounded)
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
