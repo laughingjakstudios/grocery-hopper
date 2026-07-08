@@ -5,21 +5,9 @@ import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/ca
 import { ListCard } from './ListCard'
 import { HamburgerMenu } from './HamburgerMenu'
 import { createClient } from '@/lib/supabase/client'
+import { transformShares, type GroceryList } from '@/lib/list-state'
 
 const SELECTED_LIST_KEY = 'grocery-hopper-selected-list'
-
-type GroceryList = {
-  id: string
-  name: string
-  description: string | null
-  is_active: boolean
-  share_code: string | null
-  created_at: string
-  user_id: string
-  myRole: 'owner' | 'editor'
-  isOwner: boolean
-  isShared: boolean
-}
 
 interface DashboardContentProps {
   initialLists: GroceryList[]
@@ -74,33 +62,9 @@ export function DashboardContent({ initialLists, userId }: DashboardContentProps
         return
       }
 
-      type GroceryListData = {
-        id: string
-        name: string
-        description: string | null
-        is_active: boolean
-        share_code: string | null
-        user_id: string
-        created_at: string
-        updated_at: string
-      }
-
-      const freshLists = shares?.map(share => {
-        const listData = share.grocery_lists as unknown as GroceryListData
-        return {
-          ...listData,
-          myRole: share.role as 'owner' | 'editor',
-          isOwner: share.role === 'owner',
-          isShared: share.role !== 'owner',
-        }
-      }).sort((a, b) => {
-        if (a.is_active !== b.is_active) return a.is_active ? -1 : 1
-        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-      }) || []
-
       if (seq !== fetchSeq.current) return
 
-      setLists(freshLists)
+      setLists(transformShares(shares))
     } catch (error) {
       console.error('Failed to fetch lists:', error)
     } finally {
@@ -120,6 +84,10 @@ export function DashboardContent({ initialLists, userId }: DashboardContentProps
     document.addEventListener('visibilitychange', handleVisibilityChange)
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange)
   }, [fetchLists])
+
+  // Scope the grocery_lists subscription to the lists we actually have
+  // (resubscribes when membership changes; RLS also enforces this server-side)
+  const listIdsKey = lists.map(l => l.id).sort().join(',')
 
   // Subscribe to real-time changes on list_shares (new shares, removed shares)
   useEffect(() => {
@@ -157,15 +125,18 @@ export function DashboardContent({ initialLists, userId }: DashboardContentProps
           }
         }
       )
-      .on(
+
+    // in.() with an empty id set is an invalid filter — skip until we have lists
+    if (listIdsKey) {
+      channel.on(
         'postgres_changes',
         {
           event: 'UPDATE',
           schema: 'public',
           table: 'grocery_lists',
+          filter: `id=in.(${listIdsKey})`,
         },
         (payload) => {
-          // Update list in place if it's one we have access to
           setLists(prev => prev.map(list =>
             list.id === payload.new.id
               ? { ...list, ...payload.new }
@@ -173,12 +144,14 @@ export function DashboardContent({ initialLists, userId }: DashboardContentProps
           ))
         }
       )
-      .subscribe()
+    }
+
+    channel.subscribe()
 
     return () => {
       supabase.removeChannel(channel)
     }
-  }, [userId, fetchLists])
+  }, [userId, fetchLists, listIdsKey])
 
   function handleListCreated(newList: GroceryList) {
     setLists((prev) => [newList, ...prev])

@@ -1,10 +1,11 @@
 // GroceryHopper Service Worker
 // Provides offline functionality and PWA features
 
-const CACHE_NAME = 'groceryhopper-v3'
+const CACHE_NAME = 'groceryhopper-v4'
+// Only truly static resources — authenticated/dynamic pages like /dashboard
+// must not be precached (a stale install-time snapshot is never useful)
 const STATIC_ASSETS = [
   '/',
-  '/dashboard',
   '/manifest.json',
 ]
 

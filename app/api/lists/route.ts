@@ -44,7 +44,49 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json(data)
-  } catch (error) {
+  } catch {
+    return NextResponse.json({ error: 'Internal error' }, { status: 500 })
+  }
+}
+
+// Update list (archive/restore, rename)
+export async function PATCH(request: NextRequest) {
+  try {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+
+    if (!user) {
+      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
+    }
+
+    const body = await request.json()
+    const { id, name, description, is_active } = body
+
+    if (!id) {
+      return NextResponse.json({ error: 'List ID required' }, { status: 400 })
+    }
+
+    const updates: Record<string, unknown> = {}
+    if (name !== undefined) updates.name = name
+    if (description !== undefined) updates.description = description
+    if (is_active !== undefined) updates.is_active = is_active
+
+    if (Object.keys(updates).length === 0) {
+      return NextResponse.json({ error: 'No fields to update' }, { status: 400 })
+    }
+
+    const { error } = await supabase
+      .from('grocery_lists')
+      .update(updates)
+      .eq('id', id)
+      .eq('user_id', user.id) // Only owners can modify the list itself
+
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 400 })
+    }
+
+    return NextResponse.json({ success: true })
+  } catch {
     return NextResponse.json({ error: 'Internal error' }, { status: 500 })
   }
 }
@@ -76,7 +118,7 @@ export async function DELETE(request: NextRequest) {
     }
 
     return NextResponse.json({ success: true })
-  } catch (error) {
+  } catch {
     return NextResponse.json({ error: 'Internal error' }, { status: 500 })
   }
 }

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -9,36 +9,12 @@ import { ListItemsSection } from './ListItemsSection'
 import { ShareListDialog } from './ShareListDialog'
 import { createClient } from '@/lib/supabase/client'
 import { leaveList } from '../actions'
-
-type GroceryList = {
-  id: string
-  name: string
-  description: string | null
-  is_active: boolean
-  share_code: string | null
-  created_at: string
-  user_id: string
-  myRole: 'owner' | 'editor'
-  isOwner: boolean
-  isShared: boolean
-}
-
-type Category = {
-  id: string
-  name: string
-  color: string
-  icon: string | null
-}
-
-type ListItem = {
-  id: string
-  name: string
-  quantity: string | null
-  notes: string | null
-  is_checked: boolean
-  category_id: string | null
-  list_id: string
-}
+import {
+  mergeFetchedItems,
+  type Category,
+  type GroceryList,
+  type ListItem,
+} from '@/lib/list-state'
 
 export function ListCard({
   list,
@@ -61,7 +37,7 @@ export function ListCard({
   // Fetch items and categories for this list. Guarded so an older in-flight
   // response can never overwrite a newer one, and so optimistic temp items
   // (not yet committed to the DB) survive the wholesale replace.
-  async function fetchData() {
+  const fetchData = useCallback(async () => {
     const seq = ++fetchSeq.current
     const supabase = createClient()
 
@@ -82,18 +58,14 @@ export function ListCard({
 
     if (seq !== fetchSeq.current) return
 
-    setItems(prev => {
-      const fresh = itemsData || []
-      const pendingTemp = prev.filter(item => item.id.startsWith('temp-'))
-      return pendingTemp.length ? [...pendingTemp, ...fresh] : fresh
-    })
+    setItems(prev => mergeFetchedItems(prev, itemsData || []))
     setCategories(categoriesData || [])
     setLoading(false)
-  }
+  }, [list.id])
 
   useEffect(() => {
     fetchData()
-  }, [list.id])
+  }, [fetchData])
 
   // Refetch when the tab becomes visible again, for shared list sync
   // (realtime events can be missed while the tab is backgrounded)
@@ -104,7 +76,7 @@ export function ListCard({
 
     document.addEventListener('visibilitychange', handleVisibilityChange)
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange)
-  }, [list.id])
+  }, [fetchData])
 
   // Real-time subscription for items in this list
   useEffect(() => {
@@ -164,7 +136,7 @@ export function ListCard({
     return () => {
       supabase.removeChannel(channel)
     }
-  }, [list.id])
+  }, [list.id, userId])
 
   const uncheckedCount = items.filter((item) => !item.is_checked).length
   const checkedCount = items.filter((item) => item.is_checked).length
@@ -188,19 +160,22 @@ export function ListCard({
     setIsActive(newActiveState)
     onToggleActive?.(list.id, newActiveState)
 
-    const supabase = createClient()
-    await supabase
-      .from('grocery_lists')
-      .update({ is_active: newActiveState })
-      .eq('id', list.id)
+    try {
+      const response = await fetch('/api/lists', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: list.id, is_active: newActiveState }),
+      })
+      if (!response.ok) throw new Error('Failed to update list')
+    } catch {
+      // Revert the optimistic update
+      setIsActive(!newActiveState)
+      onToggleActive?.(list.id, !newActiveState)
+    }
   }
 
   function handleItemsChange(updater: ListItem[] | ((prev: ListItem[]) => ListItem[])) {
     setItems(updater)
-  }
-
-  function handleCategoriesChange(newCategories: Category[]) {
-    setCategories(newCategories)
   }
 
   return (
@@ -292,7 +267,6 @@ export function ListCard({
               items={items}
               categories={categories}
               onItemsChange={handleItemsChange}
-              onCategoriesChange={handleCategoriesChange}
             />
           )}
         </CardContent>
