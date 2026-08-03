@@ -375,7 +375,7 @@ function ItemRow({
           className={`text-xl text-gray-800 truncate ${
             item.is_checked ? 'line-through text-gray-500' : ''
           }`}
-          style={{ fontFamily: 'var(--font-caveat)', fontWeight: 500 }}
+          style={{ fontFamily: 'var(--font-sour-gummy)', fontWeight: 500 }}
         >
           {item.name}
         </span>
