@@ -267,22 +267,15 @@ export function ListItemsSection({
     items.map((item) => item.category_id).filter((id): id is string => id !== null)
   )
   const filterableCategories = categories.filter((c) => usedCategoryIds.has(c.id))
-  const hasUncategorized = items.some((item) => !item.category_id)
   const showCategoryTabs = filterableCategories.length > 0
 
   const activeFilter =
-    categoryFilter === 'all' ||
-    (categoryFilter === 'uncategorized' && hasUncategorized) ||
-    filterableCategories.some((c) => c.id === categoryFilter)
+    categoryFilter === 'all' || filterableCategories.some((c) => c.id === categoryFilter)
       ? categoryFilter
       : 'all'
 
   const filteredItems =
-    activeFilter === 'all'
-      ? items
-      : activeFilter === 'uncategorized'
-      ? items.filter((item) => !item.category_id)
-      : items.filter((item) => item.category_id === activeFilter)
+    activeFilter === 'all' ? items : items.filter((item) => item.category_id === activeFilter)
 
   const uncheckedItems = filteredItems.filter((item) => !item.is_checked)
   const checkedItems = filteredItems.filter((item) => item.is_checked)
@@ -370,18 +363,6 @@ export function ListItemsSection({
               {category.name}
             </button>
           ))}
-          {hasUncategorized && (
-            <button
-              onClick={() => setCategoryFilter('uncategorized')}
-              className="shrink-0 rounded-full px-3 py-1 text-sm transition-colors hover:opacity-80"
-              style={{
-                backgroundColor: activeFilter === 'uncategorized' ? '#d97706' : '#fef3c7',
-                color: activeFilter === 'uncategorized' ? '#fff' : '#92400e',
-              }}
-            >
-              Uncategorized
-            </button>
-          )}
         </div>
       )}
 
