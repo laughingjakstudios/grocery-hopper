@@ -80,15 +80,22 @@ export async function PATCH(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { id, is_checked } = body
+    const { id, is_checked, name, quantity, notes, category_id } = body
 
     if (!id) {
       return NextResponse.json({ error: 'Item ID required' }, { status: 400 })
     }
 
+    const updates: Record<string, unknown> = {}
+    if (is_checked !== undefined) updates.is_checked = is_checked
+    if (name !== undefined) updates.name = name
+    if (quantity !== undefined) updates.quantity = quantity
+    if (notes !== undefined) updates.notes = notes
+    if (category_id !== undefined) updates.category_id = category_id
+
     const { error } = await supabase
       .from('list_items')
-      .update({ is_checked })
+      .update(updates)
       .eq('id', id)
 
     if (error) {

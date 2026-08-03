@@ -20,6 +20,7 @@ import {
   type Category,
   type ListItem,
 } from '@/lib/list-state'
+import { EditItemDialog, type ItemEdits } from './EditItemDialog'
 
 type SyncError = {
   message: string
@@ -45,6 +46,7 @@ export function ListItemsSection({
   const [newItemCategory, setNewItemCategory] = useState('')
   const [isAdding, setIsAdding] = useState(false)
   const [syncError, setSyncError] = useState<SyncError | null>(null)
+  const [editingItem, setEditingItem] = useState<ListItem | null>(null)
 
   const handleAuthError = useCallback(() => {
     router.push('/auth/signin')
@@ -193,6 +195,47 @@ export function ListItemsSection({
     }
   }
 
+  async function handleUpdateItem(itemId: string, edits: ItemEdits): Promise<boolean> {
+    const previousItem = items.find(item => item.id === itemId)
+    if (!previousItem) return false
+
+    onItemsChange(prev =>
+      prev.map(item => (item.id === itemId ? { ...item, ...edits } : item))
+    )
+
+    try {
+      const response = await fetch('/api/items', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: itemId, ...edits }),
+      })
+
+      if (response.status === 401) {
+        onItemsChange(prev =>
+          prev.map(item => (item.id === itemId ? previousItem : item))
+        )
+        handleAuthError()
+        return false
+      }
+
+      if (!response.ok) {
+        onItemsChange(prev =>
+          prev.map(item => (item.id === itemId ? previousItem : item))
+        )
+        handleSyncError(`Failed to update "${edits.name}"`)
+        return false
+      }
+
+      return true
+    } catch {
+      onItemsChange(prev =>
+        prev.map(item => (item.id === itemId ? previousItem : item))
+      )
+      handleSyncError(`Failed to update "${edits.name}" - check your connection`)
+      return false
+    }
+  }
+
   async function handleClearChecked() {
     const checkedItemsBackup = items.filter(item => item.is_checked)
 
@@ -306,6 +349,7 @@ export function ListItemsSection({
                     categories={categories}
                     onToggle={handleToggleItem}
                     onDelete={handleDeleteItem}
+                    onEdit={setEditingItem}
                   />
                 ))}
               </div>
@@ -333,6 +377,7 @@ export function ListItemsSection({
                     categories={categories}
                     onToggle={handleToggleItem}
                     onDelete={handleDeleteItem}
+                    onEdit={setEditingItem}
                   />
                 ))}
               </div>
@@ -340,6 +385,14 @@ export function ListItemsSection({
           </>
         )}
       </div>
+
+      <EditItemDialog
+        key={editingItem?.id ?? 'none'}
+        item={editingItem}
+        categories={categories}
+        onClose={() => setEditingItem(null)}
+        onSave={handleUpdateItem}
+      />
     </div>
   )
 }
@@ -349,11 +402,13 @@ function ItemRow({
   categories,
   onToggle,
   onDelete,
+  onEdit,
 }: {
   item: ListItem
   categories: Category[]
   onToggle: (id: string, currentState: boolean) => void
   onDelete: (id: string) => void
+  onEdit: (item: ListItem) => void
 }) {
   const category = categories.find((c) => c.id === item.category_id)
   const isTemp = isTempId(item.id)
@@ -370,7 +425,10 @@ function ItemRow({
         disabled={isTemp}
         className="h-5 w-5 border-amber-400 data-[state=checked]:bg-amber-600 data-[state=checked]:border-amber-600"
       />
-      <div className="flex-1 min-w-0 flex items-baseline gap-2 overflow-hidden">
+      <div
+        className="flex-1 min-w-0 flex items-baseline gap-2 overflow-hidden cursor-pointer"
+        onClick={() => !isTemp && onEdit(item)}
+      >
         <span
           className={`text-xl text-gray-800 truncate ${
             item.is_checked ? 'line-through text-gray-500' : ''
