@@ -47,6 +47,7 @@ export function ListItemsSection({
   const [isAdding, setIsAdding] = useState(false)
   const [syncError, setSyncError] = useState<SyncError | null>(null)
   const [editingItem, setEditingItem] = useState<ListItem | null>(null)
+  const [categoryFilter, setCategoryFilter] = useState<string>('all')
 
   const handleAuthError = useCallback(() => {
     router.push('/auth/signin')
@@ -262,8 +263,29 @@ export function ListItemsSection({
     }
   }
 
-  const uncheckedItems = items.filter((item) => !item.is_checked)
-  const checkedItems = items.filter((item) => item.is_checked)
+  const usedCategoryIds = new Set(
+    items.map((item) => item.category_id).filter((id): id is string => id !== null)
+  )
+  const filterableCategories = categories.filter((c) => usedCategoryIds.has(c.id))
+  const hasUncategorized = items.some((item) => !item.category_id)
+  const showCategoryTabs = filterableCategories.length > 0
+
+  const activeFilter =
+    categoryFilter === 'all' ||
+    (categoryFilter === 'uncategorized' && hasUncategorized) ||
+    filterableCategories.some((c) => c.id === categoryFilter)
+      ? categoryFilter
+      : 'all'
+
+  const filteredItems =
+    activeFilter === 'all'
+      ? items
+      : activeFilter === 'uncategorized'
+      ? items.filter((item) => !item.category_id)
+      : items.filter((item) => item.category_id === activeFilter)
+
+  const uncheckedItems = filteredItems.filter((item) => !item.is_checked)
+  const checkedItems = filteredItems.filter((item) => item.is_checked)
 
   return (
     <div className="space-y-4">
@@ -317,6 +339,52 @@ export function ListItemsSection({
         </div>
       </form>
 
+      {/* Category Filter Tabs */}
+      {showCategoryTabs && (
+        <div className="flex gap-2 overflow-x-auto pb-1 -mx-2 px-2">
+          <button
+            onClick={() => setCategoryFilter('all')}
+            className="shrink-0 rounded-full px-3 py-1 text-sm transition-colors hover:opacity-80"
+            style={{
+              backgroundColor: activeFilter === 'all' ? '#d97706' : '#fef3c7',
+              color: activeFilter === 'all' ? '#fff' : '#92400e',
+            }}
+          >
+            All
+          </button>
+          {filterableCategories.map((category) => (
+            <button
+              key={category.id}
+              onClick={() => setCategoryFilter(category.id)}
+              className={`shrink-0 rounded-full px-3 py-1 text-sm transition-colors ${
+                activeFilter === category.id
+                  ? 'text-white'
+                  : 'hover:opacity-80'
+              }`}
+              style={{
+                backgroundColor: activeFilter === category.id ? category.color : category.color + '25',
+                color: activeFilter === category.id ? '#fff' : category.color,
+              }}
+            >
+              {category.icon && <span className="mr-1">{category.icon}</span>}
+              {category.name}
+            </button>
+          ))}
+          {hasUncategorized && (
+            <button
+              onClick={() => setCategoryFilter('uncategorized')}
+              className="shrink-0 rounded-full px-3 py-1 text-sm transition-colors hover:opacity-80"
+              style={{
+                backgroundColor: activeFilter === 'uncategorized' ? '#d97706' : '#fef3c7',
+                color: activeFilter === 'uncategorized' ? '#fff' : '#92400e',
+              }}
+            >
+              Uncategorized
+            </button>
+          )}
+        </div>
+      )}
+
       {/* Items List - Lined Paper Style */}
       <div
         className="rounded-md -mx-2 px-4 min-h-[200px]"
@@ -336,6 +404,10 @@ export function ListItemsSection({
         {items.length === 0 ? (
           <p className="py-8 text-center text-sm text-amber-700/60 italic">
             No items yet. Add your first item above!
+          </p>
+        ) : filteredItems.length === 0 ? (
+          <p className="py-8 text-center text-sm text-amber-700/60 italic">
+            No items in this category.
           </p>
         ) : (
           <>
